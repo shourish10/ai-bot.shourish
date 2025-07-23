@@ -1,75 +1,80 @@
+
+
 import React, { useState } from "react";
 import "./Chatbot.css";
 
-const Chatbot = () => {
-  const [userInput, setUserInput] = useState("");
-  const [chat, setChat] = useState([]);
+const API = "https://ai-chatbot-backend-63ak.onrender.com/"; // 🔁 Replace with your actual backend URL
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!userInput.trim()) return;
+function Chatbot() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    // Add user message to chat
-    setChat([...chat, { sender: "user", message: userInput }]);
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const userMessage = { text: input, sender: "user" };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setLoading(true);
 
     try {
-      const response = await fetch("https://ai-chatbot-backend-63ak.onrender.com/", {
+      const res = await fetch(`${API}/ask`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: userInput }),
+        body: JSON.stringify({ message: input }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (data.response) {
-        setChat((prevChat) => [
-          ...prevChat,
-          { sender: "ai", message: data.response },
-        ]);
+      if (res.ok && data.response) {
+        const botMessage = { text: data.response, sender: "bot" };
+        setMessages((prev) => [...prev, botMessage]);
       } else {
-        setChat((prevChat) => [
-          ...prevChat,
-          { sender: "ai", message: "❌ Error: No response from server." },
-        ]);
-        console.error("Backend error:", data);
+        const errorMsg = { text: "⚠️ Error: No response from backend.", sender: "bot" };
+        setMessages((prev) => [...prev, errorMsg]);
       }
     } catch (error) {
-      console.error("Network error:", error);
-      setChat((prevChat) => [
-        ...prevChat,
-        { sender: "ai", message: "⚠️ Network error. Try again later." },
-      ]);
+      const errorMsg = { text: "⚠️ Network error. Please try again later.", sender: "bot" };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setUserInput(""); // Clear input
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      sendMessage();
+    }
   };
 
   return (
     <div className="chatbot-container">
-      <h1>🤖 AI Chatbot</h1>
-      <div className="chat-window">
-        {chat.map((msg, index) => (
+      <div className="chatbox">
+        {messages.map((msg, index) => (
           <div
             key={index}
-            className={`chat-message ${msg.sender === "user" ? "user" : "ai"}`}
+            className={`message ${msg.sender === "user" ? "user" : "bot"}`}
           >
-            <strong>{msg.sender === "user" ? "You" : "AI"}:</strong> {msg.message}
+            {msg.text}
           </div>
         ))}
+        {loading && <div className="message bot">Typing...</div>}
       </div>
-      <form onSubmit={handleSubmit} className="input-form">
+      <div className="input-box">
         <input
           type="text"
-          placeholder="Type your message..."
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
+          placeholder="Ask me anything..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyPress}
         />
-        <button type="submit">Send</button>
-      </form>
+        <button onClick={sendMessage}>Send</button>
+      </div>
     </div>
   );
-};
+}
 
 export default Chatbot;
